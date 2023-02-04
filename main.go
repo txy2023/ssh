@@ -5,13 +5,13 @@ import (
 	"log"
 	"sync"
 
-	"github.com/wanshantian/GolangLearning/ssh/cmd"
+	"github.com/wanshantian/ssh/cmd"
 )
 
 func main() {
 	user1 := &cmd.LoginInfo{
 		User:     "tian",
-		Ip:       "192.168.101.108",
+		Ip:       "192.168.1.3",
 		Port:     22,
 		Password: "tian",
 	}
@@ -28,13 +28,13 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		s.Run("sleep 2")
-		fmt.Println("test1")
+		ret := s.Run("echo hello")
+		fmt.Println(ret)
 		wg.Done()
 	}()
 	go func() {
-		s.Run("echo hello")
-		fmt.Println("test2")
+		ret := s.Run("pwd")
+		fmt.Println(ret)
 		wg.Done()
 	}()
 	wg.Wait()
