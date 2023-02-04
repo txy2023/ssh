@@ -27,7 +27,7 @@ type Client struct {
 	*ssh.Client
 }
 
-// 在一次session中可连续执行Run方法
+// 在一次session中可连续执行命令
 type Stream struct {
 	in              io.WriteCloser //session.StdinPipe()
 	out             *bytes.Buffer  //记录session.Stdout和session.Stderr
@@ -36,6 +36,7 @@ type Stream struct {
 	session         *ssh.Session
 	logger          *logrus.Logger //记录日志
 	mu              *sync.Mutex    //读写锁，确保一次完整的Run操作
+	tiout           int            //执行一次命令等待返回值的时间
 }
 
 func NewClient(li *LoginInfo) (*Client, error) {
@@ -78,7 +79,7 @@ func (c *Client) NewStream() (*Stream, error) {
 	}
 	// 定义日志
 	var log = logrus.New()
-	file, err := os.OpenFile("logrus.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	file, err := os.OpenFile("ssh.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func (c *Client) NewStream() (*Stream, error) {
 	if err != nil {
 		log.Panicf("shell session error%v", err)
 	}
-	// 过滤返回的登录信息(Last login: Fri Dec  2 08:09:12 2022 from 192.168.101.105),返回stream
+	// 过滤返回的登录信息(e.g. Last login: Fri Dec  2 08:09:12 2022 from 192.168.101.105),返回stream
 	timeout := time.After(time.Second * 10)
 	for {
 		select {
@@ -126,7 +127,8 @@ func (c *Client) NewStream() (*Stream, error) {
 					session:         session,
 					readUntilExpect: flag,
 					logger:          log,
-					mu:              new(sync.Mutex)}, nil
+					mu:              new(sync.Mutex),
+					tiout:           10}, nil
 			}
 		}
 	}
@@ -137,13 +139,23 @@ func (s *Stream) UpdateReadUntilExpect(expect string) {
 	s.readUntilExpect = expect
 }
 
-// 读取返回值，直到readUntilExpect
+// 更新tiout
+func (s *Stream) UpdateTimeout(t int) {
+	s.tiout = t
+}
+
+// 指定时间内(默认10s)读取返回值，直到有readUntilExpect；如果超时，直接获取返回值
 func (s *Stream) readUntil() error {
 	ch := make(chan struct{}, 1)
-	timeout := time.After(time.Second * 10)
+	timeout := time.After(time.Second * time.Duration(s.tiout))
 	for {
 		select {
 		case <-timeout:
+			out := s.out.String()
+			tmp := make([]byte, len(out))
+			s.out.Read(tmp)
+			s.ch <- string(tmp)
+			close(ch)
 			return errors.New("timeout Waiting for Return")
 		case <-ch:
 			return nil
@@ -173,7 +185,7 @@ func (s *Stream) Run(cmd string) string {
 	go func() {
 		err := s.readUntil()
 		if err != nil {
-			log.Panic(err)
+			s.logger.Warnln(err)
 		}
 		wg.Done()
 	}()
