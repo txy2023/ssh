@@ -185,7 +185,7 @@ func (s *Stream) Run(cmd string) string {
 	go func() {
 		err := s.readUntil()
 		if err != nil {
-			s.logger.Warnln(err)
+			s.logger.Panicln(err)
 		}
 		wg.Done()
 	}()
