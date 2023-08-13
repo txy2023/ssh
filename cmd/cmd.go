@@ -111,7 +111,7 @@ func (c *Client) NewStream() (*Stream, error) {
 	if err != nil {
 		log.Panicf("shell session error%v", err)
 	}
-	// 过滤返回的登录信息(e.g. Last login: Fri Dec  2 08:09:12 2022 from 192.168.101.105),返回stream
+	// 通过Read过滤返回的登录信息(e.g. Last login: Fri Dec  2 08:09:12 2022 from 192.168.101.105),返回stream
 	timeout := time.After(time.Second * 10)
 	for {
 		select {

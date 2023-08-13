@@ -36,7 +36,7 @@ func main() {
 		wg.Done()
 	}()
 	go func() {
-		ret := s.Run("sleep 11 && pwd")
+		ret := s.Run("pwd")
 		fmt.Println(ret)
 		wg.Done()
 	}()
