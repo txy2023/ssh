@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/wanshantian/ssh/utils"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -178,14 +179,15 @@ func (s *Stream) Run(cmd string) string {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		s.logger.Infof("Input:%s", cmd)
+		s.logger.Infof("Input: %s", cmd)
 		s.in.Write([]byte(fmt.Sprintf("%v\n", cmd)))
 		wg.Done()
 	}()
 	go func() {
 		err := s.readUntil()
 		if err != nil {
-			s.logger.Panicln(err)
+			// s.logger.Panicln(err)
+			s.logger.Warningln(err)
 		}
 		wg.Done()
 	}()
@@ -196,8 +198,9 @@ func (s *Stream) Run(cmd string) string {
 		outSlice := strings.Split(out, "\n")
 		outStrip := strings.Join(outSlice[:len(outSlice)-1], "\n")
 		out = strings.ReplaceAll(outStrip, "\r", "")
+		out = utils.Normalization(out)
 	}
-	s.logger.Infof("Output:%s", out)
+	s.logger.Infof("Output: %s", out)
 	s.mu.Unlock()
 	return out
 }
